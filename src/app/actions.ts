@@ -25,6 +25,16 @@ export async function signIn(form: FormData) {
   fail((await client.auth.signInWithPassword({ email:value(form,'email'), password:value(form,'password') })).error);
   redirect('/');
 }
+export async function signInWithGoogle() {
+  const client = await db();
+  const { data, error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${siteUrl()}/auth/callback` },
+  });
+  fail(error);
+  if (!data.url) throw new Error('Não foi possível iniciar a entrada com Google.');
+  redirect(data.url);
+}
 export async function signUp(form: FormData) {
   const client = await db();
   const origin = siteUrl();
