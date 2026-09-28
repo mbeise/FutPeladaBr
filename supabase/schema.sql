@@ -46,6 +46,9 @@ create index on public.group_members(user_id);
 create index on public.players(group_id);
 create index on public.games(group_id,starts_at desc);
 create index on public.dinners(group_id,event_at desc);
+create index on public.dinner_votes(user_id);
+create index on public.dinners(game_id);
+create index on public.game_players(player_id);
 
 create schema if not exists private;
 create function private.is_member(g uuid) returns boolean language sql stable security definer
