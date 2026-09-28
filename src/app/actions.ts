@@ -6,6 +6,13 @@ import { balanceTeams, type Player } from '@/lib/teams';
 
 function value(form: FormData, key: string) { return String(form.get(key) ?? '').trim(); }
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
+function siteUrl() {
+  const configured=process.env.NEXT_PUBLIC_SITE_URL;
+  const vercelDomain=process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const origin=configured || (vercelDomain ? `https://${vercelDomain}` : undefined);
+  if (!origin) throw new Error('Configure NEXT_PUBLIC_SITE_URL para os e-mails de autenticação.');
+  return origin.replace(/\/$/, '');
+}
 async function owner(groupId: string) {
   const { client, user } = await currentUser();
   const { data } = await client.from('groups').select('owner_id').eq('id', groupId).single();
@@ -20,15 +27,13 @@ export async function signIn(form: FormData) {
 }
 export async function signUp(form: FormData) {
   const client = await db();
-  const origin = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!origin) throw new Error('Configure NEXT_PUBLIC_SITE_URL para confirmação por e-mail.');
+  const origin = siteUrl();
   fail((await client.auth.signUp({ email:value(form,'email'), password:value(form,'password'), options:{emailRedirectTo:`${origin}/auth/callback`} })).error);
   redirect('/login?notice=Confirme%20seu%20e-mail%20antes%20de%20entrar');
 }
 export async function signOut() { const client=await db(); fail((await client.auth.signOut()).error); redirect('/login'); }
 export async function sendReset(form: FormData) {
-  const client=await db(); const origin=process.env.NEXT_PUBLIC_SITE_URL;
-  if (!origin) throw new Error('Configure NEXT_PUBLIC_SITE_URL.');
+  const client=await db(); const origin=siteUrl();
   fail((await client.auth.resetPasswordForEmail(value(form,'email'), {redirectTo:`${origin}/auth/callback?next=/reset-password`})).error);
   redirect('/login?notice=Se%20a%20conta%20existir%2C%20enviaremos%20um%20e-mail');
 }
