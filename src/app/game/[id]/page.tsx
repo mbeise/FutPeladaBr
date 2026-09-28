@@ -1,0 +1,13 @@
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { db } from '@/lib/supabase';
+import { assignTeams } from '../../actions';
+export default async function Game({params}:{params:Promise<{id:string}>}){
+ const {id}=await params;const client=await db();const {data:{user}}=await client.auth.getUser();if(!user)return <main className="setup"><p>Entre para visualizar o jogo.</p><Link href="/login">Entrar</Link></main>;
+ const {data:game}=await client.from('games').select('*,groups(owner_id,name)').eq('id',id).single();if(!game)notFound();
+ const [pr,gpr]=await Promise.all([client.from('players').select('*').eq('group_id',game.group_id).eq('active',true).order('name'),client.from('game_players').select('*,players(name,positions)').eq('game_id',id)]);
+ const players=pr.data??[],assigned=gpr.data??[];const admin=game.groups?.owner_id===user.id;
+ return <main className="shell"><header className="top"><Link href="/" className="brand">⚽ FutPeladaBr</Link><Link href="/">Voltar ao painel</Link></header><div className="heading"><div><p className="eyebrow">CARTAZ DO JOGO</p><h1>{game.groups?.name}</h1><p>{new Date(game.starts_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} · {game.venue}</p></div></div>
+ <div className="grid"><section className="card"><h2>Equipe azul</h2>{assigned.filter(p=>p.team===1).map(p=><div className="rosterrow" key={p.player_id}><strong>{p.players?.name}</strong><small>{p.players?.positions?.join(', ')}</small></div>)}</section><section className="card"><h2>Equipe amarela</h2>{assigned.filter(p=>p.team===2).map(p=><div className="rosterrow" key={p.player_id}><strong>{p.players?.name}</strong><small>{p.players?.positions?.join(', ')}</small></div>)}</section></div>
+ {admin&&<section className="card" style={{marginTop:18}}><h2>Gerar escalação</h2><p>Selecione os participantes. A divisão considera posição, habilidade, velocidade, visão e passe.</p><form action={assignTeams} className="stack"><input type="hidden" name="group_id" value={game.group_id}/><input type="hidden" name="game_id" value={id}/><div>{players.map(p=><label className="check" key={p.id}><input type="checkbox" name="player_id" value={p.id} defaultChecked={assigned.some(a=>a.player_id===p.id)}/>{p.name}</label>)}</div><button>Gerar equipes</button></form></section>}</main>;
+}
