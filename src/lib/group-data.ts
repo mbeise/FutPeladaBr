@@ -31,7 +31,8 @@ export function playerStats(players: {id:string;name:string}[], appearances: {pl
 
 export const gameDate = (value:string) => new Date(value).toLocaleString('pt-BR', {dateStyle:'medium',timeStyle:'short',timeZone:'America/Sao_Paulo'});
 export const gameInputDate = (value:string) => new Intl.DateTimeFormat('sv-SE', {timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(value)).replace(' ', 'T');
-export function nextScheduledGame<T extends {starts_at:string}>(games:T[]) {
+export function upcomingGames<T extends {starts_at:string}>(games:T[]) {
   const now = Date.now();
-  return games.filter(g => new Date(g.starts_at).getTime() >= now).sort((a,b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0];
+  return games.filter(g => new Date(g.starts_at).getTime() >= now).sort((a,b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
 }
+export function nextScheduledGame<T extends {starts_at:string}>(games:T[]) { return upcomingGames(games)[0]; }

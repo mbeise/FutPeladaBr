@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { currentUser, db } from '@/lib/supabase';
 import { balanceTeams, type Player } from '@/lib/teams';
+import { washingRound, type Wash } from '@/lib/washing';
 
 function value(form: FormData, key: string) { return String(form.get(key) ?? '').trim(); }
 function localDate(form:FormData,key:string) { return new Date(`${value(form,key)}:00-03:00`); }
@@ -89,6 +90,28 @@ export async function updatePlayer(form:FormData) {
 export async function removePlayer(form:FormData) {
   const groupId=value(form,'group_id'); const {client}=await owner(groupId);
   fail((await client.from('players').delete().eq('id',value(form,'id')).eq('group_id',groupId)).error); revalidatePath('/');
+}
+export async function markJerseyWashed(form:FormData) {
+  const groupId=value(form,'group_id'); const playerId=value(form,'player_id');
+  const {client}=await owner(groupId);
+  const [{data:players,error:playersError},{data:washes,error:washesError}]=await Promise.all([
+    client.from('players').select('id,active').eq('group_id',groupId),
+    client.from('jersey_washes').select('player_id,round_no,washed_at').eq('group_id',groupId),
+  ]);
+  fail(playersError); fail(washesError);
+  const state=washingRound(players??[],washes as Wash[]??[]);
+  if(!state.active.some(p=>p.id===playerId)||state.washed.has(playerId)||Number(value(form,'round_no'))!==state.round) throw new Error('Atualize a página para conferir a rodada atual.');
+  fail((await client.from('jersey_washes').insert({group_id:groupId,player_id:playerId,round_no:state.round})).error);
+  revalidatePath('/jalecos'); revalidatePath('/');
+}
+export async function undoJerseyWash(form:FormData) {
+  const groupId=value(form,'group_id'); const playerId=value(form,'player_id'); const round=Number(value(form,'round_no'));
+  const {client}=await owner(groupId);
+  const {data,error}=await client.from('jersey_washes').select('round_no').eq('group_id',groupId).order('round_no',{ascending:false}).limit(1);
+  fail(error);
+  if(!Number.isInteger(round)||round<1||data?.[0]?.round_no!==round) throw new Error('Só é possível desfazer a rodada em andamento.');
+  fail((await client.from('jersey_washes').delete().eq('group_id',groupId).eq('player_id',playerId).eq('round_no',round)).error);
+  revalidatePath('/jalecos'); revalidatePath('/');
 }
 export async function addGame(form:FormData) {
   const group_id=value(form,'group_id'); const {client}=await owner(group_id);
