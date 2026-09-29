@@ -1,12 +1,22 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { currentUser, db } from '@/lib/supabase';
 import { balanceTeams, type Player } from '@/lib/teams';
 
 function value(form: FormData, key: string) { return String(form.get(key) ?? '').trim(); }
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
-function siteUrl() {
+async function siteUrl() {
+  const host=(await headers()).get('host');
+  const trustedHosts=[
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    'futpeladabr.com.br',
+    'www.futpeladabr.com.br',
+  ];
+  if(host && trustedHosts.includes(host)) return `https://${host}`;
   const configured=process.env.NEXT_PUBLIC_SITE_URL;
   const vercelDomain=process.env.VERCEL_ENV==='preview'
     ? process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL
@@ -37,14 +47,14 @@ export async function signIn(form: FormData) {
 }
 export async function signUp(form: FormData) {
   const client = await db();
-  const origin = siteUrl();
+  const origin = await siteUrl();
   const { error } = await client.auth.signUp({ email:value(form,'email'), password:value(form,'password'), options:{emailRedirectTo:`${origin}/auth/callback`} });
   if (error) redirect(`/login?notice=${encodeURIComponent('Não foi possível criar a conta. Confira os dados e tente novamente.')}`);
   redirect('/login?notice=Confirme%20seu%20e-mail%20antes%20de%20entrar');
 }
 export async function signOut() { const client=await db(); fail((await client.auth.signOut()).error); redirect('/login'); }
 export async function sendReset(form: FormData) {
-  const client=await db(); const origin=siteUrl();
+  const client=await db(); const origin=await siteUrl();
   const { error } = await client.auth.resetPasswordForEmail(value(form,'email'), {redirectTo:`${origin}/auth/callback?next=/reset-password`});
   if (error) redirect(`/login?notice=${encodeURIComponent('Não foi possível enviar a recuperação agora. Tente novamente.')}`);
   redirect('/login?notice=Se%20a%20conta%20existir%2C%20enviaremos%20um%20e-mail');
