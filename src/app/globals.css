@@ -264,7 +264,12 @@ summary { cursor: pointer; color: var(--green); font-weight: 800; }
 .rating-arrows label { display: block; position: relative; width: 37px; height: 32px; cursor: pointer; }
 .rating-arrows input { position: absolute; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .rating-arrows span { display: block; width: 100%; height: 100%; background: var(--line); clip-path: polygon(0 0,71% 0,100% 50%,71% 100%,0 100%,29% 50%); transition: background .15s, transform .15s; pointer-events: none; }
-.rating-arrows label:has(input:checked) span,.rating-arrows label:has(input:checked) ~ label span { background: #0b8c58; }
-.rating-arrows label:hover span,.rating-arrows label:hover ~ label span { background: #8bd468; transform: translateX(2px); }
+.rating-arrows label:nth-child(5) { --rating-color: #df4d4d; }
+.rating-arrows label:nth-child(4) { --rating-color: #ed8740; }
+.rating-arrows label:nth-child(3) { --rating-color: #e6b927; }
+.rating-arrows label:nth-child(2) { --rating-color: #91bd3f; }
+.rating-arrows label:nth-child(1) { --rating-color: #198957; }
+.rating-arrows label:has(input:checked) span,.rating-arrows label:has(input:checked) ~ label span { background: var(--rating-color); }
+.rating-arrows label:hover span,.rating-arrows label:hover ~ label span { background: var(--rating-color); transform: translateX(2px); }
 .rating-arrows input:focus-visible + span { outline: 3px solid #8bd468; outline-offset: 3px; }
 .rating-field small { display: block; margin-top: 6px; color: var(--muted); font-size: .76rem; }
