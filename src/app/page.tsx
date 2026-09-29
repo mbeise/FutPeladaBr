@@ -3,13 +3,14 @@ import Image from 'next/image';
 import AppShell from './app-shell';
 import { groupData, gameDate, playerStats } from '@/lib/group-data';
 import { addDinner, createGroup, setDinnerCost, voteDinner } from './actions';
+import ThemeToggle from './theme-toggle';
 
 const money = (n:number) => (n/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 
 export default async function Home({searchParams}:{searchParams:Promise<{group?:string}>}) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return <main className="setup"><h1>FutPeladaBr</h1><p>Conecte o projeto Supabase para iniciar.</p></main>;
   const {user,groups,group,players,games,appearances,client} = await groupData((await searchParams).group);
-  if (!user) return <main className="setup"><Image className="hero-logo" src="/futpeladabr-logo.png" alt="FutPeladaBr — gestão da pelada semanal" width={1698} height={926} priority/><h1>Seu futebol, organizado.</h1><p>Jogadores, escalações, jogos e churrasco em um só lugar.</p><Link className="button" href="/login">Entrar ou criar conta</Link></main>;
+  if (!user) return <main className="setup login-card"><div className="login-theme"><ThemeToggle compact/></div><Image className="hero-logo" src="/futpeladabr-logo.png" alt="FutPeladaBr — gestão da pelada semanal" width={1698} height={926} priority/><h1>Seu futebol, organizado.</h1><p>Jogadores, escalações, jogos e churrasco em um só lugar.</p><Link className="button" href="/login">Entrar ou criar conta</Link></main>;
   const ranking = playerStats(players,appearances);
   const artilheiro = ranking[0]?.goals ? ranking[0] : null;
   const {data:dinners,error} = group ? await client.from('dinners').select('*,dinner_votes(user_id,attending)').eq('group_id',group.id).order('event_at',{ascending:false}).limit(8) : {data:[],error:null};
