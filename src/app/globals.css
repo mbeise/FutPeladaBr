@@ -256,3 +256,15 @@ summary { cursor: pointer; color: var(--green); font-weight: 800; }
 .washing-status.done { background: var(--surface-soft); color: var(--green); }
 .washing-footnote { margin: 18px 0; color: var(--muted); font-size: .9rem; }
 @media(max-width:700px) { .heading:has(.add-player) { flex-wrap: wrap; } .add-player { margin: 0 0 15px; } .washing-summary { grid-template-columns: 1fr; } .washing-row { flex-wrap: wrap; } .washing-row form { margin-left: auto; } }
+
+/* Setas para avaliação de 1 a 5 */
+.formgrid .rating-field { grid-column: auto; min-width: 0; margin: 0; padding: 0; border: 0; }
+.rating-field legend { margin-bottom: 8px; color: var(--text); font-weight: 700; }
+.rating-arrows { display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 5px; }
+.rating-arrows label { display: block; position: relative; width: 37px; height: 32px; cursor: pointer; }
+.rating-arrows input { position: absolute; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.rating-arrows span { display: block; width: 100%; height: 100%; background: var(--line); clip-path: polygon(0 0,71% 0,100% 50%,71% 100%,0 100%,29% 50%); transition: background .15s, transform .15s; pointer-events: none; }
+.rating-arrows label:has(input:checked) span,.rating-arrows label:has(input:checked) ~ label span { background: #0b8c58; }
+.rating-arrows label:hover span,.rating-arrows label:hover ~ label span { background: #8bd468; transform: translateX(2px); }
+.rating-arrows input:focus-visible + span { outline: 3px solid #8bd468; outline-offset: 3px; }
+.rating-field small { display: block; margin-top: 6px; color: var(--muted); font-size: .76rem; }
