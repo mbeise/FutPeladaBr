@@ -8,7 +8,9 @@ function value(form: FormData, key: string) { return String(form.get(key) ?? '')
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
 function siteUrl() {
   const configured=process.env.NEXT_PUBLIC_SITE_URL;
-  const vercelDomain=process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const vercelDomain=process.env.VERCEL_ENV==='preview'
+    ? process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL
+    : process.env.VERCEL_PROJECT_PRODUCTION_URL;
   const origin=configured || (vercelDomain ? `https://${vercelDomain}` : undefined);
   if (!origin) throw new Error('Configure NEXT_PUBLIC_SITE_URL para os e-mails de autenticação.');
   return origin.replace(/\/$/, '');
@@ -22,19 +24,29 @@ async function owner(groupId: string) {
 
 export async function signIn(form: FormData) {
   const client = await db();
-  fail((await client.auth.signInWithPassword({ email:value(form,'email'), password:value(form,'password') })).error);
+  const { error } = await client.auth.signInWithPassword({ email:value(form,'email'), password:value(form,'password') });
+  if (error) {
+    const notice = error.code === 'email_not_confirmed'
+      ? 'Confirme seu e-mail pelo link enviado antes de entrar.'
+      : error.code === 'invalid_credentials'
+        ? 'E-mail ou senha incorretos.'
+        : 'Não foi possível entrar agora. Tente novamente.';
+    redirect(`/login?notice=${encodeURIComponent(notice)}`);
+  }
   redirect('/');
 }
 export async function signUp(form: FormData) {
   const client = await db();
   const origin = siteUrl();
-  fail((await client.auth.signUp({ email:value(form,'email'), password:value(form,'password'), options:{emailRedirectTo:`${origin}/auth/callback`} })).error);
+  const { error } = await client.auth.signUp({ email:value(form,'email'), password:value(form,'password'), options:{emailRedirectTo:`${origin}/auth/callback`} });
+  if (error) redirect(`/login?notice=${encodeURIComponent('Não foi possível criar a conta. Confira os dados e tente novamente.')}`);
   redirect('/login?notice=Confirme%20seu%20e-mail%20antes%20de%20entrar');
 }
 export async function signOut() { const client=await db(); fail((await client.auth.signOut()).error); redirect('/login'); }
 export async function sendReset(form: FormData) {
   const client=await db(); const origin=siteUrl();
-  fail((await client.auth.resetPasswordForEmail(value(form,'email'), {redirectTo:`${origin}/auth/callback?next=/reset-password`})).error);
+  const { error } = await client.auth.resetPasswordForEmail(value(form,'email'), {redirectTo:`${origin}/auth/callback?next=/reset-password`});
+  if (error) redirect(`/login?notice=${encodeURIComponent('Não foi possível enviar a recuperação agora. Tente novamente.')}`);
   redirect('/login?notice=Se%20a%20conta%20existir%2C%20enviaremos%20um%20e-mail');
 }
 export async function changePassword(form: FormData) {
