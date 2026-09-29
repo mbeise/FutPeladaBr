@@ -6,6 +6,7 @@ import { currentUser, db } from '@/lib/supabase';
 import { balanceTeams, type Player } from '@/lib/teams';
 
 function value(form: FormData, key: string) { return String(form.get(key) ?? '').trim(); }
+function localDate(form:FormData,key:string) { return new Date(`${value(form,key)}:00-03:00`); }
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
 async function siteUrl() {
   const host=(await headers()).get('host');
@@ -76,15 +77,45 @@ export async function addPlayer(form:FormData) {
   if(Object.values(ratings).some(n=>!Number.isInteger(n)||n<1||n>5)) throw new Error('As notas devem ser de 1 a 5.');
   fail((await client.from('players').insert({group_id,name:value(form,'name'),positions,...ratings})).error); revalidatePath('/');
 }
+export async function updatePlayer(form:FormData) {
+  const groupId=value(form,'group_id'); const {client}=await owner(groupId);
+  const name=value(form,'name'); const positions=form.getAll('positions').map(String);
+  const allowed=['Goleiro','Zagueiro','Lateral','Meio-campo','Atacante'];
+  const ratings=Object.fromEntries(['skill','speed','vision','passing'].map(k=>[k,Number(value(form,k))]));
+  if(name.length<2||name.length>80||!positions.length||positions.some(p=>!allowed.includes(p))||Object.values(ratings).some(n=>!Number.isInteger(n)||n<1||n>5)) throw new Error('Confira o nome, as posições e as notas de 1 a 5.');
+  fail((await client.from('players').update({name,positions,...ratings}).eq('id',value(form,'id')).eq('group_id',groupId)).error);
+  revalidatePath('/');
+}
 export async function removePlayer(form:FormData) {
   const groupId=value(form,'group_id'); const {client}=await owner(groupId);
   fail((await client.from('players').delete().eq('id',value(form,'id')).eq('group_id',groupId)).error); revalidatePath('/');
 }
 export async function addGame(form:FormData) {
   const group_id=value(form,'group_id'); const {client}=await owner(group_id);
-  const date=new Date(value(form,'starts_at'));
+  const date=localDate(form,'starts_at');
   if(Number.isNaN(date.getTime())) throw new Error('Data inválida.');
   fail((await client.from('games').insert({group_id,starts_at:date.toISOString(),venue:value(form,'venue')})).error); revalidatePath('/');
+}
+export async function updateGame(form:FormData) {
+  const groupId=value(form,'group_id'); const {client}=await owner(groupId);
+  const date=localDate(form,'starts_at'); const venue=value(form,'venue');
+  if(Number.isNaN(date.getTime())||venue.length<2||venue.length>160) throw new Error('Confira a data e o local do jogo.');
+  fail((await client.from('games').update({starts_at:date.toISOString(),venue}).eq('id',value(form,'id')).eq('group_id',groupId)).error);
+  revalidatePath('/');
+}
+export async function removeGame(form:FormData) {
+  const groupId=value(form,'group_id'); const {client}=await owner(groupId);
+  fail((await client.from('games').delete().eq('id',value(form,'id')).eq('group_id',groupId)).error);
+  revalidatePath('/');
+}
+export async function setGoals(form:FormData) {
+  const groupId=value(form,'group_id'); const {client}=await owner(groupId);
+  const gameId=value(form,'game_id'); const playerId=value(form,'player_id'); const goals=Number(value(form,'goals'));
+  if(!Number.isInteger(goals)||goals<0||goals>99) throw new Error('Informe um número de gols entre 0 e 99.');
+  const {data:game}=await client.from('games').select('id').eq('id',gameId).eq('group_id',groupId).single();
+  if(!game) throw new Error('Jogo não encontrado nesta turma.');
+  fail((await client.from('game_players').update({goals}).eq('game_id',gameId).eq('player_id',playerId)).error);
+  revalidatePath(`/game/${gameId}`); revalidatePath('/');
 }
 export async function assignTeams(form:FormData) {
   const groupId=value(form,'group_id'); const gameId=value(form,'game_id'); const {client}=await owner(groupId);
@@ -94,13 +125,15 @@ export async function assignTeams(form:FormData) {
   const {data,error}=await client.from('players').select('id,name,positions,skill,speed,vision,passing').eq('group_id',groupId).eq('active',true).in('id',ids);
   fail(error); if(!data || data.length!==new Set(ids).size) throw new Error('Jogadores inválidos.');
   const teams=balanceTeams(data as Player[]);
+  const {data:previous}=await client.from('game_players').select('player_id,goals').eq('game_id',gameId);
+  const goalsByPlayer=new Map((previous??[]).map(p=>[p.player_id,p.goals]));
   fail((await client.from('game_players').delete().eq('game_id',gameId)).error);
-  fail((await client.from('game_players').insert(teams.flatMap((team,i)=>team.map(p=>({game_id:gameId,player_id:p.id,team:i+1}))))).error);
+  fail((await client.from('game_players').insert(teams.flatMap((team,i)=>team.map(p=>({game_id:gameId,player_id:p.id,team:i+1,goals:goalsByPlayer.get(p.id)??0}))))).error);
   revalidatePath(`/game/${gameId}`); redirect(`/game/${gameId}`);
 }
 export async function addDinner(form:FormData) {
   const group_id=value(form,'group_id'); const {client}=await owner(group_id);
-  const date=new Date(value(form,'event_at')); if(Number.isNaN(date.getTime())) throw new Error('Data inválida.');
+  const date=localDate(form,'event_at'); if(Number.isNaN(date.getTime())) throw new Error('Data inválida.');
   fail((await client.from('dinners').insert({group_id,title:value(form,'title'),event_at:date.toISOString()})).error); revalidatePath('/');
 }
 export async function setDinnerCost(form:FormData) {
